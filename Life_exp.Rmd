@@ -1,0 +1,151 @@
+---
+title: "Life expectancy"
+author: "Michał Gilski"
+date: "12/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(42)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{r read dataset}
+dataset <- read.csv(file = 'Life_Expectancy_Data.csv')
+dim(dataset)
+```
+
+```{r handle missing data}
+dataset <- dataset[!is.na(dataset$Life.expectancy), ]
+dim(dataset)
+list_na <- colnames(dataset)[ apply(dataset, 2, anyNA) ]
+list_na
+
+for (x in list_na)
+{
+  dataset[is.na(dataset[,x]),x] <- median(dataset[,x], na.rm=TRUE)
+}
+
+```
+```{r basic statistics}
+dim(dataset)
+summary(dataset)
+
+```
+```{r detailed analysis}
+nums <- unlist(lapply(dataset, is.numeric))
+cols <- colnames(dataset[,nums])
+for (cl in cols)
+{
+  boxplot(dataset[,cl], xlab=cl)
+}
+#boxplot.matrix(mdata[,nums],use.cols = TRUE)
+
+```
+```{r correlation}
+library(corrplot)
+corel = cor(dataset[,nums], method = c("spearman"))
+#png(height=1200, width=1500, pointsize=15, file="overlap.png")
+cex.before <- par("cex")
+par(cex = 0.7)
+corrplot(corel, method="square")
+par(cex = cex.before)
+
+```
+
+```{r interactive plot}
+df <- dataset[,c("Country","Life.expectancy","Year")]
+byCountry <- split(df, df$Country)
+
+library(plotly)
+
+merged = byCountry[[1]]
+merged
+colnames(merged)[2] <- merged$Country[1]
+merged <- merged[c(3,2)]
+merged
+byCountry[[1]] <- NULL
+#second = byCountry[[2]]
+#colnames(second)[2] <- second$Country[1]
+#merged <- cbind(merged, second[2])#merged
+
+
+fig <- plot_ly()
+for (country in byCountry)
+{
+  colnames(country)[2] <- country$Country[1]
+  merged <- cbind(merged, country[2])
+  
+#  fig <- fig %>% add_lines(data = country, x = ~country$Year, y = ~ country$Life.expectancy)
+#fig <- fig %>% add_lines(data = byCountry[[1]], x = ~first$Year, y = ~ first$Life.expectancy)
+}
+#merged
+merged
+fig <- plot_ly(data = merged, x = ~merged$Year, y = ~merged[['Afghanistan']], name = 'Afghanistan', type = 'scatter', mode = 'lines+markers')
+
+#fig <- fig %>% add_trace( y = ~merged[[3]], mode = 'lines+markers', name = "country")
+#fig <- fig %>% add_trace( y = ~merged[[4]], mode = 'lines+markers', name = '33ountry')
+
+
+#for (country in colnames(merged[3:ncol(merged)]))
+for (country in 3:ncol(merged))
+{
+  print(country)
+  fig <- fig %>% add_trace( y = merged[[country]], mode = 'lines+markers', name = colnames(merged)[country])
+}
+
+fig <- fig %>% layout(title = "Life Expectancy in different countries by year",
+         xaxis = list(title = "Year"),
+         yaxis = list (title = "Life expectancy"))
+
+fig
+
+```
+
+```{r spliting}
+
+library(caret)
+df <- dataset
+df$Status <- df$Status[df$Status == 'Developed']
+df
+inTraining <- createDataPartition(y = df$Life.expectancy,p = .8,list = FALSE)
+training_and_val <- df[ inTraining,]
+testing  <- df[-inTraining,]
+
+inTraining <- createDataPartition(y = training_and_val$Life.expectancy,p = .8,list = FALSE)
+training <- training_and_val[ inTraining,]
+validation  <- training_and_val[-inTraining,]
+
+
+dim(training)
+dim(validation)
+dim(testing)
+
+
+
+```
+```{r regression}
+
+
+```
