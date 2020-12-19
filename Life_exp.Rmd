@@ -2,45 +2,49 @@
 title: "Life expectancy"
 author: "Michał Gilski"
 date: "12/16/2020"
-output: html_document
+output: 
+  html_document:
+      toc: true
+      toc_float: true
+      keep_md: true
+      
+        
+        
+      
 ---
+# Wstęp
+
+Analizowane dane to czynniki wpływające na śrendnią długość życia. Zebrano dane z 183 państw na przestrzeni 15 lat, z atrybutami określającymi podstawowe dane o tym państwie jak i bardziej szczzegółowe statystyki medyczne i rozwojowe. Analiza danych poakzuje dosyć dużą korelację między atrybutami, co pokazuje jak często niektróre elementy współwystępują w zależności od rozwoju państwa. Wykres długości życia na przestrzeni lat, jak i duży wpływ roku badań na wyniki modelu, pokazują wyraźny wzrost średniej długości życia wraz z upływem czasu. Państwa bardziej rozwinięte i posiadające lepsze szkolnictwo również ewidenitnie posiadają dłuższe średnie oczekiwaną długość życia, co pokazują zarówno modele jak i wykres korelacji.
+
+
+# Analiza danych
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+```
+## Wykorzytywane biblioteki:
+```{r libraries, echo=FALSE, results='hide'}
+library(corrplot)
+library(caret)
+library(plotly)
+```
+```{r libs list, echo=FALSE}
+print("knitr, RMarkdown, corrplot, plotly, caret")
+```
+
+## Wczytanie danych i ustawienie deterministycznosci
+```{r read dataset, echo=TRUE}
+dataset <- read.csv(file = 'Life_Expectancy_Data.csv')
 set.seed(42)
 ```
 
-## R Markdown
+## Obsuga brakujcych dancyh
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-
-```{r read dataset}
-dataset <- read.csv(file = 'Life_Expectancy_Data.csv')
-dim(dataset)
-```
-
+W pierwszej kolejnosci usuwane są wiersze z brakującą wartością średniej długości życia, ponieważ jest to wartość która będzie badana, dlatego warto zachować ją niezmienną. Pozostałe zmienne zostały zastąpione w przypadku ich braku przez medianę z danej kolumny. Wśród kolumn z brakami nie wystąpiły pola nie numeryczne, dlatego możliwe było zastosowanie tej operacji na wszytkich brakach.
 ```{r handle missing data}
 dataset <- dataset[!is.na(dataset$Life.expectancy), ]
-dim(dataset)
 list_na <- colnames(dataset)[ apply(dataset, 2, anyNA) ]
-list_na
 
 for (x in list_na)
 {
@@ -48,11 +52,27 @@ for (x in list_na)
 }
 
 ```
-```{r basic statistics}
+
+## Podstawowe statystyki
+
+Podstawowoa anlaiza danych przedstawia zakresy i rozkłady zmiennych wśród których znajdują się 20 atrybutów liczbowych i 2 tekstowe (nazwa państwa i stan rozwinięcia). W danych znajduje się 2928 przypadków. Pokazana jest również podział ilościowy statusu rozwojowego.
+
+Wymiary datasetu:
+```{r basic statistics, echo=FALSE}
 dim(dataset)
-summary(dataset)
+knitr::kable(summary(dataset))
+#summary(dataset)
+table(unlist(dataset$Status))
+```
+Liczba panstw:
+```{r a, echo=FALSE}
+length(unique(dataset$Country))
 
 ```
+
+## Szczególowa analiza atrybutow
+
+Poniżej przedstawione są wykresy obrazujące rozkłady poszcególnych atrybutów liczbowych  w postaci wykresów pudelkowych.
 ```{r detailed analysis}
 nums <- unlist(lapply(dataset, is.numeric))
 cols <- colnames(dataset[,nums])
@@ -60,36 +80,35 @@ for (cl in cols)
 {
   boxplot(dataset[,cl], xlab=cl)
 }
-#boxplot.matrix(mdata[,nums],use.cols = TRUE)
-
 ```
-```{r correlation}
-library(corrplot)
+
+## Korelacja zmiennych
+
+Poniżej przedstawione jest wykres obrazujący poziom korelacji między poszczególnymi atrybutami, obliczone metodą Spearmana.
+```{r correlation, echo=FALSE}
+
 corel = cor(dataset[,nums], method = c("spearman"))
-#png(height=1200, width=1500, pointsize=15, file="overlap.png")
 cex.before <- par("cex")
 par(cex = 0.7)
 corrplot(corel, method="square")
 par(cex = cex.before)
 
 ```
+Analizując wykres widać że najbardziej skorelowane ze średnią długością życia jest średnia liczba szkolnictwa oraz wskaźnik określający produktywność żużywania zasobów.
+
+## Interaktywny wykres
+Ten wykres pokazuje oczekiwaną długość życia dla danego państwa i sposób w jaki zmieniała się przez lata.
 
 ```{r interactive plot}
 df <- dataset[,c("Country","Life.expectancy","Year")]
 byCountry <- split(df, df$Country)
 
-library(plotly)
+
 
 merged = byCountry[[1]]
-merged
 colnames(merged)[2] <- merged$Country[1]
 merged <- merged[c(3,2)]
-merged
 byCountry[[1]] <- NULL
-#second = byCountry[[2]]
-#colnames(second)[2] <- second$Country[1]
-#merged <- cbind(merged, second[2])#merged
-
 
 fig <- plot_ly()
 for (country in byCountry)
@@ -97,21 +116,12 @@ for (country in byCountry)
   colnames(country)[2] <- country$Country[1]
   merged <- cbind(merged, country[2])
   
-#  fig <- fig %>% add_lines(data = country, x = ~country$Year, y = ~ country$Life.expectancy)
-#fig <- fig %>% add_lines(data = byCountry[[1]], x = ~first$Year, y = ~ first$Life.expectancy)
 }
-#merged
-merged
+
 fig <- plot_ly(data = merged, x = ~merged$Year, y = ~merged[['Afghanistan']], name = 'Afghanistan', type = 'scatter', mode = 'lines+markers')
 
-#fig <- fig %>% add_trace( y = ~merged[[3]], mode = 'lines+markers', name = "country")
-#fig <- fig %>% add_trace( y = ~merged[[4]], mode = 'lines+markers', name = '33ountry')
-
-
-#for (country in colnames(merged[3:ncol(merged)]))
 for (country in 3:ncol(merged))
 {
-  print(country)
   fig <- fig %>% add_trace( y = merged[[country]], mode = 'lines+markers', name = colnames(merged)[country])
 }
 
@@ -123,29 +133,60 @@ fig
 
 ```
 
+# Tworzenie regresora
+
+W tej sekcji zostanie stworzony regresor sredniej dlugosci życia an podstawie parametrow
+
+## Podzial dancyh na trenongowe i testowe
+
+Dane zostaly podzielone na treningowe i testowe w proporcjach 80/20. Również wartość określające status rozwoju państwa został przekonwertowany do wartości 0 i 1, by mógł być interpretowany przer model.
 ```{r spliting}
 
-library(caret)
+
 df <- dataset
-df$Status <- df$Status[df$Status == 'Developed']
-df
+
+df$Status[df$Status =='Developed'] = 1
+df$Status[df$Status =='Developing'] = 0
+
 inTraining <- createDataPartition(y = df$Life.expectancy,p = .8,list = FALSE)
-training_and_val <- df[ inTraining,]
+training <- df[ inTraining,]
 testing  <- df[-inTraining,]
 
-inTraining <- createDataPartition(y = training_and_val$Life.expectancy,p = .8,list = FALSE)
-training <- training_and_val[ inTraining,]
-validation  <- training_and_val[-inTraining,]
-
-
 dim(training)
-dim(validation)
 dim(testing)
 
 
 
 ```
-```{r regression}
 
+## Trenowanie regresora
+
+Jako regresor został wybrany model 'glmnet', który posiada dwa parametry (alfa i lambda), które są parametryzowane poprzez pięciokrotne stosowanie dzieścięcio częściowej kross walidacji. Dane zostały rówież znormalizowane jak i wycentrowane. 
+```{r regression}
+tr <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+fit <- train(Life.expectancy ~ ., data= training, method = 'glmnet', preProcess = c("center", "scale"), trControl = tr)
+arrange(fit$results, RMSE) %>% head
+best <- fit$bestTune
+best
 
 ```
+Sposóród wszyskich sprawdonych wartości parametrów zostały pokazane parę najlepszych, jak i został wybrany ten z najwyższymi wynikami metryk.
+
+## Testowanie modelu
+
+Po dobraniu parametrów najlepszy model został przetestowany na zbiorze testującym, dając następujące wyniki:
+```{r testing}
+y_pred <- predict(fit, newdata = testing)
+postResample(pred = y_pred, obs = testing$Life.expectancy)
+```
+
+## Analiza ważnosci atrybutów
+
+Najlepszy model został poddany analizie ważności atrybutów zgodnie z odkrytymi przez niego zależnościami między nimi a przeciętną długością życia. Nie uwzglednione sa narodowosci poszczegolych panstw, tak aby mozna bylo skupic sie na samych uniwersalnych atrybutach.
+```{r attributes analysis}
+vim <- varImp(fit$finalModel, lambda = fit$lambda.min)
+vis <- vim[order(vim$Overall, decreasing=TRUE), ,drop = FALSE]
+rem <- grepl("Country", rownames(vis))
+vis[!rem, ,drop=FALSE]
+```
+Największy wpływ zdaje się mieć to czy państwo jest rozwinięte czy nie (co prawdopodobnie wiąże się z poziomem dostępu do opieki medycznej), zachorowania na różne choroby jak i sam rok (co pokazuje że z czasem dlugosc życia ulegala wydlużeniu). Oczywiste jest rózwnież pojawienie sie tutaj śmiertelności, zwłaszcza w młodym wieku, ponieważ one stanowczo zaniżają statystykę średniej długości życia. 
